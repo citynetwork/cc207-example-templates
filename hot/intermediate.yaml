@@ -19,7 +19,7 @@ parameters:
   packages:
     type: comma_delimited_list
     description: Additional packages to install
-    default:
+    default: ""
 
 resources:
 
