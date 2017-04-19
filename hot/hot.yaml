@@ -12,7 +12,7 @@ parameters:
   key_name:
     type: string
     description: Keypair to inject into newly created servers
-  public_net_id:
+  public_net:
     type: string
     description: Public network ID
     default: ext-net
@@ -65,7 +65,7 @@ resources:
   myfloating_ip:
     type: "OS::Neutron::FloatingIP"
     properties:
-      floating_network_id: { get_param: public_net_id }
+      floating_network_id: { get_param: public_net }
       port_id: { get_resource: mybox_management_port }
 
   mynet:
