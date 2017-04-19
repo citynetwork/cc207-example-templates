@@ -28,8 +28,23 @@ parameters:
     type: string
     description: Additional user full name
     default: ''
+  timeout:
+    type: number
+    description: Timeout for stack creation to finish
+    default: 300
 
 resources:
+
+  all_done:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: {get_resource: all_done_handle}
+      count: 1
+      timeout: {get_param: timeout}
+
+  all_done_handle:
+    type: OS::Heat::WaitConditionHandle
+
   mybox:
     type: "OS::Nova::Server"
     properties:
@@ -59,6 +74,8 @@ resources:
           shell: /bin/bash
           sudo: "ALL=(ALL) NOPASSWD:ALL"
         ssh_pwauth: true
+        runcmd:
+          - { get_attr: ['all_done_handle', 'curl_cli'] }
 
   mybox_management_port:
     type: "OS::Neutron::Port"
