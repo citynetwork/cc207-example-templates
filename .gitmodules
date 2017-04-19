@@ -8,3 +8,6 @@
 [submodule "qrcodejs"]
 	path = qrcodejs
 	url = https://github.com/davidshimjs/qrcodejs
+[submodule "term.js"]
+	path = term.js
+	url = https://github.com/chjj/term.js
