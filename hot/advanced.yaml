@@ -5,10 +5,6 @@ parameters:
     type: string
     description: Flavor to use for servers
     default: 1C-1GB
-  availability_zone:
-    type: string
-    description: AZ to place servers in
-    default: nova
   image:
     type: string
     description: Image name or ID
@@ -20,14 +16,10 @@ parameters:
     type: string
     description: Public network ID
     default: ext-net
-  username:
-    type: string
-    description: Additional login username
-    default: foobar
-  gecos:
-    type: string
-    description: Additional user full name
-    default: ''
+  packages:
+    type: comma_delimited_list
+    description: Additional packages to install
+    default:
   timeout:
     type: number
     description: Timeout for stack creation to finish
@@ -51,7 +43,6 @@ resources:
       name: mybox
       image: { get_param: image }
       flavor: { get_param: flavor }
-      availability_zone: { get_param: availability_zone }
       key_name: { get_param: key_name }
       networks:
         - port: { get_resource: mybox_management_port }
@@ -63,17 +54,8 @@ resources:
     properties:
       cloud_config:
         package_update: true
-        package_upgrade: true
-        users:
-        - default
-        - name: { get_param: username }
-          gecos: { get_param: gecos }
-          groups: users,adm
-          lock-passwd: false
-          passwd: '$6$WP9924IJiLSto8Ng$MSDwCvlT28jMOr9dwPUcJjQzcoB0BV0WCMMPB9xCj1ogbGlvgGOH.dHy5NnqYYqHVkvD5Wca/K4W.qUBbQei61' 
-          shell: /bin/bash
-          sudo: "ALL=(ALL) NOPASSWD:ALL"
-        ssh_pwauth: true
+        package_upgrade: false
+        packages: { get_param: packages }
         runcmd:
           - { get_attr: ['all_done_handle', 'curl_cli'] }
 
@@ -83,12 +65,6 @@ resources:
       network_id: { get_resource: mynet }
       security_groups:
         - { get_resource: mysecurity_group }
-
-  myfloating_ip:
-    type: "OS::Neutron::FloatingIP"
-    properties:
-      floating_network_id: { get_param: public_net }
-      port_id: { get_resource: mybox_management_port }
 
   mynet:
     type: "OS::Neutron::Net"
@@ -103,7 +79,7 @@ resources:
       cidr: 192.168.101.0/24
       gateway_ip: 192.168.101.1
       enable_dhcp: true
-      allocation_pools: 
+      allocation_pools:
         - start: "192.168.101.2"
           end: "192.168.101.50"
 
@@ -135,6 +111,12 @@ resources:
     properties:
       router_id: { get_resource: router }
       subnet_id: { get_resource: mysub_net }
+
+  myfloating_ip:
+    type: "OS::Neutron::FloatingIP"
+    properties:
+      floating_network_id: { get_param: public_net }
+      port_id: { get_resource: mybox_management_port }
 
 outputs:
   public_ip:
