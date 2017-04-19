@@ -1,9 +1,9 @@
-OpenStack
-## Orchestration
-and
-## Automation
-Inside and Out
+Cloud Automation in
 
+![OpenStack logo](images/openstack-logo.svg)
+
+Turn up the Heat!
+***
 Florian Haas, [`florian@hastexo.com`](mailto:florian@hastexo.com)
 
 
