@@ -4,17 +4,18 @@ parameters:
   flavor:
     type: string
     description: Flavor to use for servers
-    default: m1.medium
+    default: 1C-1GB
   image:
     type: string
     description: Image name or ID
-    default: trusty-server-cloudimg-amd64
+    default: Ubuntu 16.04 Xenial Xerus
   key_name:
     type: string
     description: Keypair to inject into newly created servers
   public_net_id:
     type: string
     description: Public network ID
+    default: ext-net
   username:
     type: string
     description: Additional login username
