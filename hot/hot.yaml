@@ -5,6 +5,10 @@ parameters:
     type: string
     description: Flavor to use for servers
     default: 1C-1GB
+  availability_zone:
+    type: string
+    description: AZ to place servers in
+    default: nova
   image:
     type: string
     description: Image name or ID
@@ -32,6 +36,7 @@ resources:
       name: mybox
       image: { get_param: image }
       flavor: { get_param: flavor }
+      availability_zone: { get_param: availability_zone }
       key_name: { get_param: key_name }
       networks:
         - port: { get_resource: mybox_management_port }
