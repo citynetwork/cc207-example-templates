@@ -8,19 +8,10 @@ enables you to deploy
 virtual environments
 
 
-## Heat
-supports two distinct
-# formats
-
-
-# CFN
-Amazon CloudFormation compatible template
 # HOT
 Heat Orchestration Template
 
-
-HOT is 100%
-# YAML
+100% YAML
 
 
 What can we
