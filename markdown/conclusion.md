@@ -1,7 +1,3 @@
-## Congrats!
-You've just built a Heat/`cloud-config` enabled stack!
-
-
 # More
 ### information
 
@@ -9,17 +5,14 @@ You've just built a Heat/`cloud-config` enabled stack!
 http://cloudinit.readthedocs.org/
 
 
-http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/files/head:/doc/examples/
-
-
-http://docs.openstack.org/hot-reference/
+https://docs.openstack.org/developer/heat/
 
 
 <!-- .slide: data-background-image="images/by-sa.svg" data-background-size="contain" -->
-http://hastexo.github.io/osil2015-orchestration
+http://fghaas.github.io/ccmc-20170420
 
-https://github.com/hastexo/osil2015-orchestration
+https://github.com/fghaas/ccmc-20170420
 
 
 <!-- .slide: data-background-image="images/hastexo-logo.svg" data-background-size="contain" -->
-https://www.hastexo.com/openstack
+https://www.hastexo.com/knowledge/openstack

@@ -1,12 +1,18 @@
+Integrating
+# Heat
+with
+## `cloud-init`
+
+
 Nova
 ## user data
 
 
-```sh
-nova boot \
-  --image trusty-server-cloudimg-amd64 \
+```bash
+openstack server create \
+  --image "Ubuntu 16.04 Xenial Xerus" \
   --key_name mykey \
-  --flavor m1.small \
+  --flavor "1C-1GB" \
   --user-data userdata.txt \
   --nic net-id=4f0dcc21-4b6c-47db-b283-591fdb9aa5a7 \
   test0
@@ -19,7 +25,7 @@ is what user-data
 looks like:
 
 
-```sh
+```bash
 #!/bin/sh -e
 
 # Frobnicate a newly booted box
@@ -53,11 +59,6 @@ a newly booted VM
 
 
 `cloud-config` is OpenStack's most
-## underrated
-feature
-
-
-`cloud-config` is Ubuntu's most
 ## underrated
 feature
 
@@ -101,7 +102,7 @@ users:
 Enable/disable SSH password authentication
 
 
-```
+```yaml
 ssh_pwauth: true
 ```
 
@@ -185,7 +186,7 @@ Install packages
 
 ```yaml
 packages:
-  - ansible
+  - emacs-nox
   - git
 ```
 
@@ -198,21 +199,60 @@ Running
 Run commands early in the boot sequence
 
 
-```yaml
-bootcmd:
-- ntpdate pool.ntp.org
-```
-
-
 # `runcmd`
 Run commands late in the boot sequence
 
 
+### `OS::Heat::CloudConfig`
+Manages `cloud-config` directly from Heat
+
+
 ```yaml
-runcmd:
-  - >
-    sudo -i -u training
-    ansible-pull -v -i hosts 
-    -U https://github.com/hastexo/academy-ansible 
-    -o site.yml
+resources:
+  myconfig:
+    type: "OS::Heat::CloudConfig"
+    properties:
+      cloud_config:
+        package_update: true
+        package_upgrade: true
+```
+
+```
+  mybox:
+    type: "OS::Nova::Server"
+    properties:
+      name: deploy
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: mybox_management_port }
+      user_data: { get_resource: myconfig }
+      user_data_format: RAW
+```
+
+
+Now we can also
+# set
+### `cloud-config` parameters
+directly from Heat
+
+
+```
+parameters:
+  # [...]
+  packages:
+    type: comma_delimited_list
+    description: Additional packages to install
+    default: ''
+```
+
+```
+  myconfig:
+    type: "OS::Heat::CloudConfig"
+    properties:
+      cloud_config:
+        package_update: true
+        package_upgrade: true
+		packages: { get_param: packages }
 ```

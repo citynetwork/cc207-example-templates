@@ -32,14 +32,14 @@ with Heat?
 Configures Nova guests
 
 
-```
+```yaml
 resources:
   mybox:
     type: "OS::Nova::Server"
     properties:
       name: mybox
-      image: trusty-server-cloudimg-amd64
-      flavor: m1.small
+      image: "Ubuntu 16.04 Xenial Xerus"
+      flavor: "1C-1GB"
       key_name: mykey
 ```
 
@@ -49,8 +49,8 @@ Now we could just
 this stack
 
 
-```sh
-heat stack-create -f stack.yml mystack
+```bash
+openstack stack create -t stack.yml mystack
 ```
 
 
@@ -64,16 +64,16 @@ Let's add some
 ## parameters
 
 
-```
+```yaml
 parameters:
   flavor:
     type: string
     description: Flavor to use for servers
-    default: m1.medium
+    default: "1C-1GB"
   image:
     type: string
     description: Image name or ID
-    default: trusty-server-cloudimg-amd64
+    default: "Ubuntu 16.04 Xenial Xerus"
   key_name:
     type: string
     description: Keypair to inject into newly created servers
@@ -84,7 +84,7 @@ And some
 ## intrinsic functions
 
 
-```
+```yaml
 resources:
   mybox:
     type: "OS::Nova::Server"
@@ -101,10 +101,10 @@ And now we can
 these parameters
 
 
-```sh
-heat stack-create -f stack.yml \
-  -P key_name=mykey
-  -P image=cirros-0.3.3-x86_64 \
+```bash
+openstack stack create -t stack.yml \
+  --parameter key_name=mykey \
+  --parameter image=cirros-0.3.3-x86_64 \
   mystack
 ```
 
@@ -119,7 +119,7 @@ Wouldn't that be nice?
 Defines Neutron networks
 
 
-```
+```yaml
   mynet:
     type: "OS::Neutron::Net"
     properties:
@@ -129,7 +129,7 @@ Defines Neutron networks
     type: "OS::Neutron::Subnet"
     properties:
       name: management-sub-net
-      network: { get_resource: management_net }
+      network: { get_resource: mynet }
       cidr: 192.168.122.0/24
       gateway_ip: 192.168.101.1
       enable_dhcp: true
@@ -151,7 +151,7 @@ Automatic dependency
 Configures Neutron routers
 
 
-```
+```yaml
 parameters:
   public_net:
     type: string
@@ -177,14 +177,14 @@ resources:
 Configures Neutron ports
 
 
-```
+```yaml
   mybox_management_port:
     type: "OS::Neutron::Port"
     properties:
       network: { get_resource: mynet }
 ```
 
-```
+```yaml
   mybox:
     type: "OS::Nova::Server"
     properties:
@@ -201,7 +201,7 @@ Configures Neutron ports
 Configures Neutron security groups
 
 
-```
+```yaml
   mysecurity_group:
     type: OS::Neutron::SecurityGroup
     properties:
@@ -217,7 +217,7 @@ Configures Neutron security groups
         direction: ingress
 ```
 
-```
+```yaml
   mybox_management_port:
     type: "OS::Neutron::Port"
     properties:
@@ -231,7 +231,7 @@ Configures Neutron security groups
 Allocates floating IP addresses
 
 
-```
+```yaml
   myfloating_ip:
     type: "OS::Neutron::FloatingIP"
     properties:
@@ -244,7 +244,7 @@ Allocates floating IP addresses
 Return stack values or attributes
 
 
-```
+```yaml
 outputs:
   public_ip:
     description: Floating IP address in public network
@@ -252,96 +252,7 @@ outputs:
 ```
 
 
-```sh
-heat output-show \
+```bash
+openstack stack output show \
   mystack public_ip
-```
-
-
-Integrating
-# Heat
-with
-## `cloud-init`
-
-
-```
-  mybox:
-    type: "OS::Nova::Server"
-    properties:
-      name: deploy
-      image: { get_param: image }
-      flavor: { get_param: flavor }
-      key_name: { get_param: key_name }
-      networks:
-        - port: { get_resource: mybox_management_port }
-      user_data: { get_file: cloud-config.yml }
-      user_data_format: RAW
-```
-
-
-### `OS::Heat::CloudConfig`
-Manages `cloud-config` directly from Heat
-
-
-```
-resources:
-  myconfig:
-    type: "OS::Heat::CloudConfig"
-    properties:
-      cloud_config:
-        package_update: true
-        package_upgrade: true
-```
-
-```
-  mybox:
-    type: "OS::Nova::Server"
-    properties:
-      name: deploy
-      image: { get_param: image }
-      flavor: { get_param: flavor }
-      key_name: { get_param: key_name }
-      networks:
-        - port: { get_resource: mybox_management_port }
-      user_data: { get_resource: myconfig }
-      user_data_format: RAW
-```
-
-
-Now we can also
-# set
-### `cloud-config` parameters
-directly from Heat
-
-
-```
-parameters:
-  # [...]
-  username:
-    type: string
-    description: Additional login username
-    default: foobar
-  gecos:
-    type: string
-    description: Additional user full name
-    default: ''
-```
-
-```
-  myconfig:
-    type: "OS::Heat::CloudConfig"
-    properties:
-      cloud_config:
-        package_update: true
-        package_upgrade: true
-        users:
-        - default
-        - name: { get_param: username }
-          gecos: { get_param: gecos }
-          groups: "users,adm"
-          lock-passwd: false
-          passwd: '$6$WP9924IJiLSto8Ng$MSDwCvlT28jM'
-          shell: "/bin/bash"
-          sudo: "ALL=(ALL) NOPASSWD:ALL"
-        ssh_pwauth: true
 ```
