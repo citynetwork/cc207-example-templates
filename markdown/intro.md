@@ -1,10 +1,8 @@
-Cloud Automation in
-
 ![OpenStack logo](images/openstack-logo.svg)
 
-Turn up the Heat!
+Building an Advanced Heat Template From The Ground Up
 ***
-Florian Haas, [`florian@hastexo.com`](mailto:florian@hastexo.com)
+Florian Haas, [`florian@hastexo.com`](mailto:florian@hastexo.com) | [`xahteiwi`](https://twitter.com/xahteiwi)
 
 
 Let's talk about
@@ -33,7 +31,7 @@ Note:
 All content is on 
 ## GitHub
 
-https://github.com/fghaas/ccmc-20170420
+[github.com/fghaas/openstackisrael2017-heat](https://github.com/fghaas/openstackisrael2017-heat)
 Note:
 - All examples given in this talk are available from GitHub so you can
   follow along.
@@ -41,5 +39,4 @@ Note:
 
 You'll need
 ## OpenStack credentials
-Here is how you get them:
 Note:

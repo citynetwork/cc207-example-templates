@@ -1,6 +1,6 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <title>Cloud Automation in OpenStack: Turn Up The Heat!</title>
+    <title>Building an Advanced Heat Template From The Ground Up</title>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
@@ -32,20 +32,15 @@
                  data-separator-vertical="^\n\n"
                  data-separator-notes="^Note:">
         </section>
-	<section id="credentials">
-	  <section data-background-image="images/dashboard.png" data-background-size="contain"></section>
-	  <section data-background-image="images/openstackapi.png" data-background-size="contain"></section>
-	  <section data-background-image="images/selectuser.png" data-background-size="contain"/></section>
-	  <section data-background-image="images/downloadrc.png" data-background-size="contain"/></section>
-	</section>
         <section id="heat"
                  data-markdown="markdown/heat.md"
                  data-separator="^\n\n\n"
                  data-separator-vertical="^\n\n"
                  data-separator-notes="^Note:">
         </section>
-        <section id="simple">
-          <iframe data-autoplay src="termrecord/simple.html"></iframe>
+        <section id="simple"
+		 data-background-iframe="http://localhost:4200"
+		 data-background-size="contain">
         </section>
         <section id="cloud-init"
                  data-markdown="markdown/cloud-init.md"
@@ -53,8 +48,9 @@
                  data-separator-vertical="^\n\n"
                  data-separator-notes="^Note:">
         </section>
-        <section id="intermediate">
-          <iframe data-autoplay src="termrecord/intermediate.html"></iframe>
+        <section id="simple"
+		 data-background-iframe="http://localhost:4200"
+		 data-background-size="contain">
         </section>
         <section id="wait-conditions"
                  data-markdown="markdown/wait-conditions.md"
@@ -62,8 +58,9 @@
                  data-separator-vertical="^\n\n"
                  data-separator-notes="^Note:">
         </section>
-        <section id="advanced">
-          <iframe data-autoplay src="termrecord/advanced.html"></iframe>
+        <section id="simple"
+		 data-background-iframe="http://localhost:4200"
+		 data-background-size="contain">
         </section>
         <section id="conclusion"
                  data-markdown="markdown/conclusion.md"
