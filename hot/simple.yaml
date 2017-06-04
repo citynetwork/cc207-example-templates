@@ -4,12 +4,13 @@ parameters:
   flavor:
     type: string
     description: Flavor to use for servers
-    default: 1C-1GB
+    default: 1C-1GB-20GB
   image:
     type: string
     description: Image name or ID
     default: Ubuntu 16.04 Xenial Xerus
   key_name:
+    default: ''
     type: string
     description: Keypair to inject into newly created servers
   public_net:
