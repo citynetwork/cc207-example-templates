@@ -118,6 +118,9 @@ resources:
     properties:
       floating_network_id: { get_param: public_net }
       port_id: { get_resource: mybox_management_port }
+    depends_on:
+      - router_interface
+      - router_gateway
 
 outputs:
   public_ip:
