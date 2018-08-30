@@ -1,6 +1,0 @@
-#!/bin/sh
-
-SCRIPT=`mktemp --tmpdir=. script.XXXXXXXXXX`
-TIMING=$SCRIPT.timing
-
-script -c "screen -xR" -t${TIMING} $SCRIPT
