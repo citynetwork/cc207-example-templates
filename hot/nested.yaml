@@ -1,0 +1,117 @@
+heat_template_version: 2016-10-14
+
+description: >
+  Template that installs a cluster of servers with a load balancer.
+
+  Adapted from https://github.com/miguelgrinberg/heat-tutorial/ by
+  Miguel Grinberg (MIT licensed).
+
+parameters:
+  image:
+    type: string
+    label: Image name or ID
+    description: Image to be used for server. Please use an Ubuntu based image.
+    default: Ubuntu 16.04 Xenial Xerus
+  flavor:
+    type: string
+    label: Flavor
+    description: Type of instance (flavor) to be used on the compute instance.
+    default: 1C-1GB-20GB
+  key:
+    type: string
+    label: Key name
+    description: Name of key-pair to be installed on the compute instance.
+    default: ""
+  public_network:
+    type: string
+    label: Public network name or ID
+    description: Public network to attach server to.
+    default: ext-net
+  app_servers:
+    type: number
+    description: Number of front end application servers.
+    default: 1
+  package_upgrade:
+    type: boolean
+    description: "Upgrade all packages on initial boot?"
+    default: false
+  volume_deletion_policy:
+    type: string
+    description: Deletion policy to be used for persistent volumes
+    default: delete
+    constraints:
+      - allowed_values:
+        - delete
+        - retain
+        - snapshot
+
+resources:
+  private_network:
+    type: lib/private_network.yaml
+    properties:
+      public_network: { get_param: public_network }
+
+  shared_security_group:
+    type: lib/security_group.yaml
+
+  load_balancer:
+    type: lib/lb.yaml
+    properties:
+      private_subnet: { get_attr: [private_network, subnet] }
+
+  nfs:
+    type: lib/nfs.yaml
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key: { get_param: key }
+      private_network: { get_attr: [private_network, network] }
+      private_subnet_cidr: { get_attr: [private_network, cidr] }
+      shared_security_group: { get_attr: [shared_security_group, security_group] }
+      package_upgrade: { get_param: package_upgrade }
+      volume_deletion_policy: { get_param: volume_deletion_policy }
+
+  mysql:
+    type: lib/mysql.yaml
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key: { get_param: key }
+      private_network: { get_attr: [private_network, network] }
+      private_subnet: { get_attr: [private_network, subnet] }
+      ssh_pool: { get_attr: [ load_balancer, ssh_pool ] }
+      shared_security_group: { get_attr: [shared_security_group, security_group] }
+      package_upgrade: { get_param: package_upgrade }
+      volume_deletion_policy: { get_param: volume_deletion_policy }
+
+  app:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: app_servers }
+      resource_def:
+        type: lib/wordpress.yaml
+        properties:
+          image: { get_param: image }
+          flavor: { get_param: flavor }
+          key: { get_param: key }
+          private_network: { get_attr: [private_network, network] }
+          private_subnet: { get_attr: [private_network, subnet] }
+          nfs_server: { get_attr: [ nfs, ip ] }
+          mysql_server: { get_attr: [ mysql, ip ] }
+          database_password: { get_attr: [ mysql, database_password ] }
+          http_pool: { get_attr: [ load_balancer, http_pool ] }
+          https_pool: { get_attr: [ load_balancer, https_pool ] }
+          shared_security_group: { get_attr: [shared_security_group, security_group] }
+          package_upgrade: { get_param: package_upgrade }
+          index: "%index%"
+
+  floating_ip:
+    type: lib/floating_ip.yaml
+    properties:
+      port: { get_attr: [load_balancer, port] }
+      public_network: { get_param: public_network }
+
+outputs:
+  public_ip:
+    description: The public IP address to access the server.
+    value: { get_attr: [floating_ip, ip] }

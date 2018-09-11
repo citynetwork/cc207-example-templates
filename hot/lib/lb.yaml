@@ -1,0 +1,114 @@
+heat_template_version: 2016-10-14
+
+description: >
+  Template that installs a load balancer, listeners,
+  pools, and health monitors.
+
+
+parameters:
+  private_subnet:
+    type: string
+    label: Private network name or ID
+    description: Network to attach server to.
+  ssh_port:
+    type: number
+    description: Load balancer SSH port
+    default: 22
+  http_port:
+    type: number
+    description: Load balancer HTTP port
+    default: 80
+  https_port:
+    type: number
+    description: Load balancer HTTPS port
+    default: 443
+
+resources:
+
+  lb:
+    type: OS::Neutron::LBaaS::LoadBalancer
+    properties:
+      vip_subnet: { get_param: private_subnet }
+
+  ssh_listener:
+    type: OS::Neutron::LBaaS::Listener
+    properties:
+      loadbalancer: { get_resource: lb }
+      protocol: TCP
+      protocol_port: { get_param: ssh_port }
+
+  http_listener:
+    type: OS::Neutron::LBaaS::Listener
+    properties:
+      loadbalancer: { get_resource: lb }
+      protocol: HTTP
+      protocol_port: { get_param: http_port }
+
+  https_listener:
+    type: OS::Neutron::LBaaS::Listener
+    properties:
+      loadbalancer: { get_resource: lb }
+      protocol: TCP
+      protocol_port: { get_param: https_port }
+
+  ssh_pool:
+    type: OS::Neutron::LBaaS::Pool
+    properties:
+      lb_algorithm: SOURCE_IP
+      listener: { get_resource: ssh_listener }
+      protocol: TCP
+
+  http_pool:
+    type: OS::Neutron::LBaaS::Pool
+    properties:
+      lb_algorithm: SOURCE_IP
+      listener: { get_resource: http_listener }
+      protocol: HTTP
+
+  https_pool:
+    type: OS::Neutron::LBaaS::Pool
+    properties:
+      lb_algorithm: LEAST_CONNECTIONS
+      listener: { get_resource: https_listener }
+      protocol: TCP
+
+  ssh_monitor:
+    type: OS::Neutron::LBaaS::HealthMonitor
+    properties:
+      type: TCP
+      delay: 5
+      max_retries: 5
+      pool: { get_resource: ssh_pool }
+      timeout: 5
+
+  http_monitor:
+    type: OS::Neutron::LBaaS::HealthMonitor
+    properties:
+      type: TCP
+      delay: 5
+      max_retries: 5
+      pool: { get_resource: http_pool }
+      timeout: 5
+
+  https_monitor:
+    type: OS::Neutron::LBaaS::HealthMonitor
+    properties:
+      type: TCP
+      delay: 5
+      max_retries: 5
+      pool: { get_resource: https_pool }
+      timeout: 5
+
+outputs:
+  port:
+    description: Load balancer VIP port
+    value: { get_attr: [ lb, vip_port_id ] }
+  ssh_pool:
+    description: Load balancer SSH pool
+    value: { get_resource: ssh_pool }
+  http_pool:
+    description: Load balancer HTTP pool
+    value: { get_resource: http_pool }
+  https_pool:
+    description: Load balancer HTTPS pool
+    value: { get_resource: https_pool }

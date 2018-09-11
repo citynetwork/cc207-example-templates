@@ -1,0 +1,227 @@
+heat_template_version: 2016-10-14
+
+description: >
+  Template that installs a MySQL server with a database.
+
+  Adapted from https://github.com/miguelgrinberg/heat-tutorial/ by
+  Miguel Grinberg (MIT licensed).
+
+parameters:
+  image:
+    type: string
+    label: Image name or ID
+    description: Image to be used for server. Please use an Ubuntu based image.
+    default: Ubuntu 16.04 Xenial Xerus
+  flavor:
+    type: string
+    label: Flavor
+    description: Type of instance (flavor) to be used on the compute instance.
+    default: 1C-1GB-20GB
+  key:
+    type: string
+    label: Key name
+    description: Name of key-pair to be installed on the compute instance.
+    default: ""
+  private_network:
+    type: string
+    label: Private network name or ID
+    description: Network to attach server to.
+    default: private
+  private_subnet:
+    type: string
+    label: Private subnet name or ID
+    description: Subnet to attach server to.
+  volume_size:
+    type: number
+    description: Size of the persistent volume (in GiB)
+    default: 5
+  volume_filesystem:
+    type: string
+    description: Filesystem to be used for the persistent volume.
+    default: xfs
+  volume_deletion_policy:
+    type: string
+    description: Deletion policy to be used for the persistent volume.
+    default: delete
+    constraints:
+      - allowed_values:
+        - delete
+        - retain
+        - snapshot
+  database_name:
+    type: string
+    label: Database name
+    description: Name of the application database.
+    default: wordpress
+  database_user:
+    type: string
+    label: Database username
+    description: Name of the database user.
+    default: wordpress
+  ssh_pool:
+    type: string
+    description: LBaaS SSH pool
+  ssh_port:
+    type: number
+    description: Service SSH port number
+    default: 22
+  shared_security_group:
+    type: string
+    description: Name or ID of a shared security group
+  package_upgrade:
+    type: boolean
+    description: "Upgrade all packages on initial boot?"
+    default: false
+
+resources:
+  wait_condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: { get_resource: wait_handle }
+      count: 1
+      timeout: 600
+
+  wait_handle:
+    type: OS::Heat::WaitConditionHandle
+
+  mysql_root_password:
+    type: OS::Heat::RandomString
+    properties:
+      length: 32
+      sequence: lettersdigits
+
+  database_password:
+    type: OS::Heat::RandomString
+    properties:
+      length: 32
+      sequence: lettersdigits
+
+  port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: private_network }
+      security_groups:
+        - { get_param: shared_security_group }
+
+  mysql_volume:
+    type: OS::Cinder::Volume
+    deletion_policy: { get_param: volume_deletion_policy }
+    properties:
+      name: mysql
+      size: { get_param: volume_size }
+
+  mysql_config:
+    type: "OS::Heat::CloudConfig"
+    properties:
+      cloud_config:
+        package_update: true
+        package_upgrade: { get_param: package_upgrade }
+        packages:
+          - mysql-server
+        mounts:
+          - [ vdb, '/var/lib/mysql', "auto", "defaults,nofail" ]
+        write_files:
+          - path: /tmp/mkfs.sh
+            permissions: '0750'
+            content:
+              str_replace:
+                params:
+                  __fs__: { get_param: volume_filesystem }
+                template: |
+                  #!/bin/bash -ex
+                  DEVICE=/dev/vdb
+
+                  blkid | grep $DEVICE && exit 0
+                  mkfs -t __fs__ $DEVICE
+
+                  rm /tmp/mkfs.sh
+          - path: /tmp/mysql-setup.sh
+            permissions: '0750'
+            content:
+              str_replace:
+                params:
+                  __mysql_root_password__: { get_attr: [mysql_root_password, value] }
+                  __database_name__: { get_param: database_name }
+                  __database_user__: { get_param: database_user }
+                  __database_password__: { get_attr: [database_password, value] }
+                template: |
+                  #!/bin/bash -ex
+
+                  # listen on all network interfaces
+                  sed -e "s/bind-address.*/bind-address = 0.0.0.0/" -i /etc/mysql/mysql.conf.d/mysqld.cnf
+
+                  # bail if the database already exists
+                  [ -d /var/lib/mysql/__database_name__ ] && exit 0
+
+                  # initialize mysql if necessary
+                  if [ ! -d /var/lib/mysql/mysql ]; then
+                    # initialize database server
+                    service mysql stop
+                    chown mysql:mysql /var/lib/mysql
+                    mysqld --initialize-insecure --user=mysql
+                    service mysql start
+                  fi
+
+                  # configure MySQL root password
+                  mysqladmin -u root password "__mysql_root_password__"
+
+                  # create wordpress database
+                  mysql -u root --password="__mysql_root_password__" <<EOF
+                  CREATE DATABASE __database_name__;
+                  CREATE USER '__database_user__'@'localhost';
+                  SET PASSWORD FOR '__database_user__'@'localhost'=PASSWORD("__database_password__");
+                  GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'localhost' IDENTIFIED BY '__database_password__';
+                  CREATE USER '__database_user__'@'%';
+                  SET PASSWORD FOR '__database_user__'@'%'=PASSWORD("__database_password__");
+                  GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'%' IDENTIFIED BY '__database_password__';
+                  FLUSH PRIVILEGES;
+                  EOF
+
+                  rm /tmp/mysql-setup.sh
+        runcmd:
+          - /tmp/mkfs.sh
+          - mount -a
+          - /tmp/mysql-setup.sh
+          - service mysql restart
+          - { get_attr: ['wait_handle', 'curl_cli'] }
+
+  mysql_instance:
+    type: OS::Nova::Server
+    properties:
+      name: mysql
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key }
+      networks:
+        - port: { get_resource: port }
+      user_data_format: RAW
+      user_data: { get_resource: mysql_config }
+
+  mysql_volume_attachment:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      instance_uuid: { get_resource: mysql_instance }
+      volume_id: { get_resource: mysql_volume }
+
+  ssh_member:
+    type: OS::Neutron::LBaaS::PoolMember
+    properties:
+      address: { get_attr: [ mysql_instance, first_address ] }
+      pool: { get_param: ssh_pool }
+      protocol_port: { get_param: ssh_port }
+      subnet: { get_param: private_subnet }
+
+
+outputs:
+  name:
+    description: Name of the MySQL instance.
+    value: { get_attr: [mysql_instance, name] }
+  ip:
+    description: The IP address of the MySQL instance.
+    value: { get_attr: [mysql_instance, first_address] }
+  port:
+    description: The network port of the MySQL instance.
+    value: { get_resource: port }
+  database_password:
+    description: The MySQL database password.
+    value: { get_attr: [database_password, value] }

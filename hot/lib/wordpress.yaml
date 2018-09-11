@@ -1,0 +1,224 @@
+heat_template_version: 2016-10-14
+
+description: >
+  Template that installs a wordpress server.
+
+  Adapted from https://github.com/miguelgrinberg/heat-tutorial/ by
+  Miguel Grinberg (MIT licensed).
+
+parameters:
+
+  image:
+    type: string
+    label: Image name or ID
+    description: Image to be used for server. Please use an Ubuntu based image.
+    default: Ubuntu 16.04 Xenial Xerus
+  flavor:
+    type: string
+    label: Flavor
+    description: Type of instance (flavor) to be used on the compute instance.
+    default: 1C-1GB-20GB
+  key:
+    type: string
+    label: Key name
+    description: Name of key-pair to be installed on the compute instance.
+    default: ""
+  private_network:
+    type: string
+    label: Private network name or ID
+    description: Network to attach server to.
+    default: private
+  private_subnet:
+    type: string
+    label: Private subnet name or ID
+    description: Subnet to attach server to.
+  mysql_server:
+    type: string
+    label: MySQL database server
+    description: IP address of the MySQL database server.
+  nfs_server:
+    type: string
+    label: NFS server
+    description: IP address of the NFS server.
+  database_name:
+    type: string
+    label: Database name
+    description: Name of the application database.
+    default: wordpress
+  database_user:
+    type: string
+    label: Database user
+    description: Name of the database user.
+    default: wordpress
+  database_password:
+    type: string
+    label: Database password
+    hidden: true
+    description: Password to access the database.
+  http_pool:
+    type: string
+    description: LBaaS HTTP pool
+  http_port:
+    type: number
+    description: Service HTTP port number
+    default: 80
+  https_pool:
+    type: string
+    description: LBaaS HTTPS pool
+  https_port:
+    type: number
+    description: Service HTTPS port number
+    default: 443
+  shared_security_group:
+    type: string
+    description: Name or ID of a shared security group
+  package_upgrade:
+    type: boolean
+    description: "Upgrade all packages on initial boot?"
+    default: false
+  index:
+    type: number
+    description: "The index, if used in a ResourceGroup"
+    default: 0
+
+resources:
+  wait_condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: { get_resource: wait_handle }
+      count: 1
+      timeout: 600
+
+  wait_handle:
+    type: OS::Heat::WaitConditionHandle
+
+  security_group:
+      type: OS::Neutron::SecurityGroup
+      properties:
+        name: web_server_security_group
+        rules:
+          - protocol: tcp
+            port_range_min: 80
+            port_range_max: 80
+
+  port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: private_network }
+      security_groups:
+        - { get_resource: security_group }
+        - { get_param: shared_security_group }
+
+  wordpress_config:
+    type: "OS::Heat::CloudConfig"
+    properties:
+      cloud_config:
+        package_update: true
+        package_upgrade: { get_param: package_upgrade }
+        packages:
+          - apache2
+          - php
+          - libapache2-mod-php
+          - php-mysql
+          - php-gd
+          - mysql-client
+          - nfs-common
+        write_files:
+          - path: /tmp/update-fstab.sh
+            permissions: '0750'
+            content:
+              str_replace:
+                params:
+                  __ip__: { get_param: nfs_server }
+                template: |
+                  #!/bin/bash -ex
+
+                  # The cloud-init "mounts" module can't handle NFS mounts,
+                  # hence this script
+                  grep "__ip__:/wordpress" /etc/fstab && exit 0
+
+                  cat >> /etc/fstab <<EOF
+                  __ip__:/wordpress /var/www/html nfs4 defaults 0 0
+                  EOF
+
+                  rm /tmp/update-fstab.sh
+          - path: /tmp/wordpress-setup.sh
+            permissions: '0750'
+            content:
+              str_replace:
+                params:
+                  __mysql_ip__: { get_param: mysql_server }
+                  __database_name__: { get_param: database_name }
+                  __database_user__: { get_param: database_user }
+                  __database_password__: { get_param: database_password }
+                template: |
+                  #!/bin/bash -ex
+
+                  [ -e /var/www/html/wp-config.php ] && exit 0
+
+                  # download wordpress
+                  wget http://wordpress.org/latest.tar.gz
+                  tar -xzf latest.tar.gz
+
+                  # configure wordpress
+                  cp wordpress/wp-config-sample.php wordpress/wp-config.php
+                  sed -i 's/database_name_here/__database_name__/' wordpress/wp-config.php
+                  sed -i 's/username_here/__database_user__/' wordpress/wp-config.php
+                  sed -i 's/password_here/__database_password__/' wordpress/wp-config.php
+                  sed -i 's/localhost/__mysql_ip__/' wordpress/wp-config.php
+
+                  # install a copy of the configured wordpress into apache's www directory
+                  rm -f /var/www/html/index.html
+                  cp -R wordpress/* /var/www/html/
+
+                  # give apache ownership of the application files
+                  chown -R www-data:www-data /var/www/html/
+                  chmod -R g+w /var/www/html/
+
+                  rm /tmp/wordpress-setup.sh
+        runcmd:
+          - /tmp/update-fstab.sh
+          - mount -a
+          - service apache2 restart
+          - /tmp/wordpress-setup.sh
+          - { get_attr: ['wait_handle', 'curl_cli'] }
+
+  wordpress_instance:
+    type: OS::Nova::Server
+    properties:
+      name:
+        str_replace:
+          params:
+            __index__: { get_param: index }
+          template: "wordpress__index__"
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key }
+      networks:
+        - port: { get_resource: port }
+      user_data_format: RAW
+      user_data: { get_resource: wordpress_config }
+
+  http_member:
+    type: OS::Neutron::LBaaS::PoolMember
+    properties:
+      address: { get_attr: [ wordpress_instance, first_address ] }
+      pool: { get_param: http_pool }
+      protocol_port: { get_param: http_port }
+      subnet: { get_param: private_subnet }
+
+  https_member:
+    type: OS::Neutron::LBaaS::PoolMember
+    properties:
+      address: { get_attr: [ wordpress_instance, first_address ] }
+      pool: { get_param: https_pool }
+      protocol_port: { get_param: https_port }
+      subnet: { get_param: private_subnet }
+
+outputs:
+  name:
+    description: Name of the wordpress instance.
+    value: { get_attr: [wordpress_instance, name] }
+  ip:
+    description: The IP address of the wordpress instance.
+    value: { get_attr: [wordpress_instance, first_address] }

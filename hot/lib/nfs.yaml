@@ -1,0 +1,173 @@
+heat_template_version: 2016-10-14
+
+description: >
+  Template that installs an NFS server, backed by a volume.
+
+parameters:
+
+  image:
+    type: string
+    label: Image name or ID
+    description: Image to be used for server. Please use an Ubuntu based image.
+    default: Ubuntu 16.04 Xenial Xerus
+  flavor:
+    type: string
+    label: Flavor
+    description: Type of instance (flavor) to be used on the compute instance.
+    default: 1C-1GB-20GB
+  key:
+    type: string
+    label: Key name
+    description: Name of key-pair to be installed on the compute instance.
+    default: ""
+  private_network:
+    type: string
+    label: Private network name or ID
+    description: Network to attach server to.
+    default: private
+  private_subnet_cidr:
+    type: string
+    label: Private CIDR network
+    description: "The private subnet's CIDR network address"
+  volume_size:
+    type: number
+    description: Size of the persistent volume (in GiB)
+    default: 5
+  volume_filesystem:
+    type: string
+    description: Filesystem to be used for the persistent volume.
+    default: xfs
+  volume_deletion_policy:
+    type: string
+    description: Deletion policy to be used for the persistent volume.
+    default: delete
+    constraints:
+      - allowed_values:
+        - delete
+        - retain
+        - snapshot
+  rquotad_port:
+    type: number
+    label: rquotad port
+    description: TCP/UDP port used by NFS rquotad
+    default: 875
+  lockd_tcp_port:
+    type: number
+    label: lockd TCP port
+    description: TCP port used by NFS lockd
+    default: 32803
+  lockd_udp_port:
+    type: number
+    label: lockd UDP port
+    description: UDP port used by NFS lockd
+    default: 32769
+  mountd_port:
+    type: number
+    label: mountd port
+    description: TCP/UDP port used by NFS mountd
+    default: 892
+  statd_port:
+    type: number
+    label: mountd port
+    description: TCP/UDP port used by NFS statd
+    default: 662
+  shared_security_group:
+    type: string
+    description: Name or ID of a shared security group
+  package_upgrade:
+    type: boolean
+    description: "Upgrade all packages on initial boot?"
+    default: false
+
+resources:
+  wait_condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: { get_resource: wait_handle }
+      count: 1
+      timeout: 600
+
+  wait_handle:
+    type: OS::Heat::WaitConditionHandle
+
+  port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: private_network }
+      security_groups:
+        - { get_param: shared_security_group }
+
+  nfs_volume:
+    type: OS::Cinder::Volume
+    deletion_policy: { get_param: volume_deletion_policy }
+    properties:
+      name: nfs
+      size: { get_param: volume_size }
+
+  nfs_config:
+    type: "OS::Heat::CloudConfig"
+    properties:
+      cloud_config:
+        package_update: true
+        package_upgrade: { get_param: package_upgrade }
+        packages:
+          - nfs-kernel-server
+        mounts:
+          - [ vdb, '/srv/exports', "auto", "defaults,nofail" ]
+        write_files:
+          - path: /etc/exports
+            permissions: '0644'
+            content:
+              str_replace:
+                params:
+                  __cidr__: { get_param: private_subnet_cidr }
+                template: |
+                  /srv/exports __cidr__(rw,fsid=0,sync,no_root_squash,no_subtree_check)
+                  /srv/exports/wordpress __cidr__(rw,fsid=1,nohide,sync,no_root_squash,no_subtree_check)
+          - path: /tmp/mkfs.sh
+            permissions: '0750'
+            content:
+              str_replace:
+                params:
+                  __fs__: { get_param: volume_filesystem }
+                template: |
+                  #!/bin/bash -ex
+                  DEVICE=/dev/vdb
+
+                  blkid | grep $DEVICE && exit 0
+                  mkfs -t __fs__ $DEVICE
+
+                  rm /tmp/mkfs.sh
+        runcmd:
+          - /tmp/mkfs.sh
+          - mount -a
+          - mkdir -p /srv/exports/wordpress
+          - service rpcbind restart
+          - service nfs-kernel-server restart
+          - { get_attr: ['wait_handle', 'curl_cli'] }
+
+  nfs_instance:
+    type: OS::Nova::Server
+    properties:
+      name: nfs
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key }
+      networks:
+        - port: { get_resource: port }
+      user_data_format: RAW
+      user_data: { get_resource: nfs_config }
+
+  nfs_volume_attachment:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      instance_uuid: { get_resource: nfs_instance }
+      volume_id: { get_resource: nfs_volume }
+
+outputs:
+  name:
+    description: Name of the NFS instance.
+    value: { get_attr: [nfs_instance, name] }
+  ip:
+    description: The IP address of the NFS instance.
+    value: { get_attr: [nfs_instance, first_address] }
