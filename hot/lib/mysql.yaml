@@ -192,6 +192,7 @@ resources:
       image: { get_param: image }
       flavor: { get_param: flavor }
       key_name: { get_param: key }
+      config_drive: true
       networks:
         - port: { get_resource: port }
       user_data_format: RAW
