@@ -17,6 +17,10 @@ parameters:
     type: string
     description: Public network ID
     default: ext-net
+  config_drive:
+    type: boolean
+    description: Use config_drive for metadata discovery?
+    default: true
 
 resources:
 
@@ -27,7 +31,7 @@ resources:
       image: { get_param: image }
       flavor: { get_param: flavor }
       key_name: { get_param: key_name }
-      config_drive: true
+      config_drive: { get_param: config_drive }
       networks:
         - port: { get_resource: mybox_management_port }
 
