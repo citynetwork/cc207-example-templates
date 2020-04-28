@@ -201,7 +201,7 @@ resources:
       user_data: { get_resource: wordpress_config }
 
   http_member:
-    type: OS::Neutron::LBaaS::PoolMember
+    type: OS::Octavia::PoolMember
     properties:
       address: { get_attr: [ wordpress_instance, first_address ] }
       pool: { get_param: http_pool }
@@ -209,7 +209,7 @@ resources:
       subnet: { get_param: private_subnet }
 
   https_member:
-    type: OS::Neutron::LBaaS::PoolMember
+    type: OS::Octavia::PoolMember
     properties:
       address: { get_attr: [ wordpress_instance, first_address ] }
       pool: { get_param: https_pool }

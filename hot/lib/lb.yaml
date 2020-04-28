@@ -26,54 +26,54 @@ parameters:
 resources:
 
   lb:
-    type: OS::Neutron::LBaaS::LoadBalancer
+    type: OS::Octavia::LoadBalancer
     properties:
       vip_subnet: { get_param: private_subnet }
 
   ssh_listener:
-    type: OS::Neutron::LBaaS::Listener
+    type: OS::Octavia::Listener
     properties:
       loadbalancer: { get_resource: lb }
       protocol: TCP
       protocol_port: { get_param: ssh_port }
 
   http_listener:
-    type: OS::Neutron::LBaaS::Listener
+    type: OS::Octavia::Listener
     properties:
       loadbalancer: { get_resource: lb }
       protocol: HTTP
       protocol_port: { get_param: http_port }
 
   https_listener:
-    type: OS::Neutron::LBaaS::Listener
+    type: OS::Octavia::Listener
     properties:
       loadbalancer: { get_resource: lb }
       protocol: TCP
       protocol_port: { get_param: https_port }
 
   ssh_pool:
-    type: OS::Neutron::LBaaS::Pool
+    type: OS::Octavia::Pool
     properties:
       lb_algorithm: SOURCE_IP
       listener: { get_resource: ssh_listener }
       protocol: TCP
 
   http_pool:
-    type: OS::Neutron::LBaaS::Pool
+    type: OS::Octavia::Pool
     properties:
       lb_algorithm: SOURCE_IP
       listener: { get_resource: http_listener }
       protocol: HTTP
 
   https_pool:
-    type: OS::Neutron::LBaaS::Pool
+    type: OS::Octavia::Pool
     properties:
       lb_algorithm: LEAST_CONNECTIONS
       listener: { get_resource: https_listener }
       protocol: TCP
 
   ssh_monitor:
-    type: OS::Neutron::LBaaS::HealthMonitor
+    type: OS::Octavia::HealthMonitor
     properties:
       type: TCP
       delay: 5
@@ -82,7 +82,7 @@ resources:
       timeout: 5
 
   http_monitor:
-    type: OS::Neutron::LBaaS::HealthMonitor
+    type: OS::Octavia::HealthMonitor
     properties:
       type: TCP
       delay: 5
@@ -91,7 +91,7 @@ resources:
       timeout: 5
 
   https_monitor:
-    type: OS::Neutron::LBaaS::HealthMonitor
+    type: OS::Octavia::HealthMonitor
     properties:
       type: TCP
       delay: 5

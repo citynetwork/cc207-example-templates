@@ -205,7 +205,7 @@ resources:
       volume_id: { get_resource: mysql_volume }
 
   ssh_member:
-    type: OS::Neutron::LBaaS::PoolMember
+    type: OS::Octavia::PoolMember
     properties:
       address: { get_attr: [ mysql_instance, first_address ] }
       pool: { get_param: ssh_pool }
