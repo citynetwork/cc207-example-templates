@@ -4,7 +4,11 @@ parameters:
   flavor:
     type: string
     description: Flavor to use for servers
-    default: 1C-1GB-20GB
+    default: b.1c1gb
+  volume_size:
+    type: number
+    description: Size for volumes
+    default: 20
   image:
     type: string
     description: Image name or ID
@@ -46,6 +50,10 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: mybox
+      block_device_mapping_v2:
+        - image: { get_param: image }
+          volume_size: { get_param: volume_size }
+          delete_on_termination: true
       image: { get_param: image }
       flavor: { get_param: flavor }
       key_name: { get_param: key_name }

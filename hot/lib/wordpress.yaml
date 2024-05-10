@@ -17,7 +17,11 @@ parameters:
     type: string
     label: Flavor
     description: Type of instance (flavor) to be used on the compute instance.
-    default: 1C-1GB-20GB
+    default: b.1c1gb
+  volume_size:
+    type: number
+    description: Size for volumes
+    default: 20
   key:
     type: string
     label: Key name
@@ -191,8 +195,11 @@ resources:
           params:
             __index__: { get_param: index }
           template: "wordpress__index__"
-      image: { get_param: image }
       flavor: { get_param: flavor }
+      block_device_mapping_v2:
+        - image: { get_param: image }
+          volume_size: { get_param: volume_size }
+          delete_on_termination: true
       key_name: { get_param: key }
       config_drive: true
       networks:

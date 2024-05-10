@@ -16,7 +16,7 @@ parameters:
     type: string
     label: Flavor
     description: Type of instance (flavor) to be used on the compute instance.
-    default: 1C-1GB-20GB
+    default: b.1c1gb
   key:
     type: string
     label: Key name
