@@ -27,6 +27,8 @@ parameters:
     label: Public network name or ID
     description: Public network to attach server to.
     default: ext-net
+    constraints:
+      - custom_constraint: neutron.network
   app_servers:
     type: number
     description: Number of front end application servers.

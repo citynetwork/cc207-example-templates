@@ -12,6 +12,23 @@ parameters:
     label: Public network name or ID
     description: Public network with floating IP addresses.
     default: ext-net
+    constraints:
+      - custom_constraint: neutron.network
+  ipv6_subnetpool:
+    type: string
+    description: "Subnetpool name or ID (IPv6 only)"
+    default: ipv6_tenant_pool
+    constraints:
+      - custom_constraint: neutron.subnetpool
+  ipv6_mode:
+    type: string
+    description: "Mode to be used for address assignment and router advertisement (IPv6 only)"
+    default: slaac
+    constraints:
+      - allowed_values:
+          - slaac
+          - dhcpv6-stateful
+          - dhcpv6-stateless
   cidr:
     type: string
     label: CIDR
@@ -29,13 +46,24 @@ resources:
     properties:
       name: private_network
 
-  private_subnet:
+  private_subnet_ipv4:
     type: OS::Neutron::Subnet
     properties:
       name: private_subnet
       network_id: { get_resource: private_network }
       cidr: { get_param: cidr }
       dns_nameservers: { get_param: dns }
+
+  private_subnet_ipv6:
+    type: "OS::Neutron::Subnet"
+    properties:
+      name: private_subnet
+      ip_version: 6
+      ipv6_address_mode: { get_param: ipv6_mode }
+      ipv6_ra_mode: { get_param: ipv6_mode }
+      subnetpool: { get_param: ipv6_subnetpool }
+      network: { get_resource: private_network }
+      enable_dhcp: true
 
   router:
     type: OS::Neutron::Router
@@ -44,11 +72,17 @@ resources:
       external_gateway_info:
         network: { get_param: public_network }
 
-  router-interface:
+  router-interface-ipv4:
     type: OS::Neutron::RouterInterface
     properties:
       router_id: { get_resource: router }
-      subnet: { get_resource: private_subnet }
+      subnet: { get_resource: private_subnet_ipv4 }
+
+  router_interface_ipv6:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: private_subnet_ipv6}
 
 outputs:
   network:
@@ -56,7 +90,7 @@ outputs:
     value: { get_resource: private_network }
   subnet:
     description: "The private network's single subnet."
-    value: { get_resource: private_subnet }
+    value: { get_resource: private_subnet_ipv4 }
   cidr:
     description: "The private subnet's CIDR address."
-    value: { get_attr: [ private_subnet, cidr ] }
+    value: { get_attr: [ private_subnet_ipv4, cidr ] }

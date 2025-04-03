@@ -21,6 +21,23 @@ parameters:
     type: string
     description: Public network ID
     default: ext-net
+    constraints:
+      - custom_constraint: neutron.network
+  ipv6_subnetpool:
+    type: string
+    description: "Subnetpool name or ID (IPv6 only)"
+    default: ipv6_tenant_pool
+    constraints:
+      - custom_constraint: neutron.subnetpool
+  ipv6_mode:
+    type: string
+    description: "Mode to be used for address assignment and router advertisement (IPv6 only)"
+    default: slaac
+    constraints:
+      - allowed_values:
+          - slaac
+          - dhcpv6-stateful
+          - dhcpv6-stateless
   packages:
     type: comma_delimited_list
     description: Additional packages to install
@@ -84,7 +101,7 @@ resources:
     properties:
       name: management-net
 
-  mysub_net:
+  mysub_net_ipv4:
     type: "OS::Neutron::Subnet"
     properties:
       name: management-sub-net
@@ -99,19 +116,62 @@ resources:
         - start: "192.168.101.2"
           end: "192.168.101.50"
 
+  mysub_net_ipv6:
+    type: "OS::Neutron::Subnet"
+    properties:
+      name: management-sub-net
+      ip_version: 6
+      ipv6_address_mode: { get_param: ipv6_mode }
+      ipv6_ra_mode: { get_param: ipv6_mode }
+      subnetpool: { get_param: ipv6_subnetpool }
+      network: { get_resource: mynet }
+      enable_dhcp: true
+
   mysecurity_group:
     type: OS::Neutron::SecurityGroup
     properties:
       description: Neutron security group rules
       name: mysecurity_group
-      rules:
-      - remote_ip_prefix: 0.0.0.0/0
-        protocol: tcp
-        port_range_min: 22
-        port_range_max: 22
-      - remote_ip_prefix: 0.0.0.0/0
-        protocol: icmp
-        direction: ingress
+
+  security_group_rule_icmp_ipv4:
+    type: OS::Neutron::SecurityGroupRule
+    properties:
+      security_group: { get_resource: mysecurity_group }
+      remote_ip_prefix: "0.0.0.0/0"
+      ethertype: IPv4
+      protocol: icmp
+      direction: ingress
+
+  security_group_rule_icmp_ipv6:
+    type: OS::Neutron::SecurityGroupRule
+    properties:
+      security_group: { get_resource: mysecurity_group }
+      remote_ip_prefix: "::/0"
+      ethertype: IPv6
+      protocol: icmp
+      direction: ingress
+
+  security_group_rule_tcp_ipv4:
+    type: OS::Neutron::SecurityGroupRule
+    properties:
+      security_group: { get_resource: mysecurity_group }
+      remote_ip_prefix: "0.0.0.0/0"
+      ethertype: IPv4
+      protocol: tcp
+      port_range_min: 22
+      port_range_max: 22
+      direction: ingress
+
+  security_group_rule_tcp_ipv6:
+    type: OS::Neutron::SecurityGroupRule
+    properties:
+      security_group: { get_resource: mysecurity_group }
+      remote_ip_prefix: "::/0"
+      ethertype: IPv6
+      protocol: tcp
+      port_range_min: 22
+      port_range_max: 22
+      direction: ingress
 
   router:
     type: OS::Neutron::Router
@@ -122,11 +182,17 @@ resources:
       router_id: { get_resource: router }
       network_id: { get_param: public_net }
 
-  router_interface:
+  router_interface_ipv4:
     type: OS::Neutron::RouterInterface
     properties:
       router_id: { get_resource: router }
-      subnet_id: { get_resource: mysub_net }
+      subnet_id: { get_resource: mysub_net_ipv4 }
+
+  router_interface_ipv6:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: { get_resource: router }
+      subnet: { get_resource: mysub_net_ipv6 }
 
   myfloating_ip:
     type: "OS::Neutron::FloatingIP"
@@ -134,7 +200,7 @@ resources:
       floating_network_id: { get_param: public_net }
       port_id: { get_resource: mybox_management_port }
     depends_on:
-      - router_interface
+      - router_interface_ipv4
       - router_gateway
 
 outputs:
